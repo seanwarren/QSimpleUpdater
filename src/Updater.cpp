@@ -392,8 +392,9 @@ void Updater::setUpdateAvailable (const bool available) {
  *     - If both versions are the same, this function returns \c false.
  */
 bool Updater::compare (const QString& x, const QString& y) {
-    QStringList versionsX = x.split (".");
-    QStringList versionsY = y.split (".");
+    auto sep = QRegularExpression("[\\.-]");
+    QStringList versionsX = x.split (sep);
+    QStringList versionsY = y.split (sep);
 
     int count = qMin (versionsX.count(), versionsY.count());
 
