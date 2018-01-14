@@ -5,7 +5,7 @@ find_package(Qt5Widgets)
 find_package(Qt5Network)
 
 set(CMAKE_AUTOMOC ON)
-add_definitions(${QT_DEFINITIONS}) 
+cmake_policy(SET CMP0071 OLD)
 
 include_directories(${Qt5Widgets_INCLUDE_DIRS} 
                     ${Qt5Network_INCLUDE_DIRS}
@@ -31,5 +31,10 @@ set(HEADERS
 	src/Downloader.h
 )
 
-add_library(QSimpleUpdater OBJECT ${SOURCE} ${HEADERS} ${UI_HEADERS} ${UI_RESOURCES})
-set(QSimpleUpdater_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}/src" PARENT_SCOPE)
+add_library(QSimpleUpdater STATIC ${SOURCE} ${HEADERS} ${UI_HEADERS} ${UI_RESOURCES})
+
+target_include_directories(QSimpleUpdater INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include 
+													${CMAKE_CURRENT_SOURCE_DIR}/src
+										  PRIVATE   ${Qt5Widgets_INCLUDE_DIRS} 
+													${Qt5Network_INCLUDE_DIRS}
+													${CMAKE_CURRENT_BINARY_DIR})
