@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016 Alex Spataru <alex_spataru@outlook.com>
+ * Copyright (c) 2017 Gilmanov Ildar <https://github.com/gilmanov-ildar>
  *
  * This file is part of the QSimpleUpdater library, which is released under
  * the DBAD license, you can read a copy of it below:
@@ -30,6 +31,7 @@
 #ifndef DOWNLOAD_DIALOG_H
 #define DOWNLOAD_DIALOG_H
 
+#include <QDir>
 #include <QDialog>
 #include <ui_Downloader.h>
 
@@ -43,25 +45,31 @@ class QNetworkAccessManager;
 /**
  * \brief Implements an integrated file downloader with a nice UI
  */
-class Downloader : public QWidget {
+class Downloader : public QWidget
+{
     Q_OBJECT
 
-  signals:
+signals:
     void downloadFinished (const QString& url, const QString& filepath);
 
-  public:
+public:
     explicit Downloader (QWidget* parent = 0);
     ~Downloader();
 
     bool useCustomInstallProcedures() const;
 
-  public slots:
+    QString downloadDir() const;
+    void setDownloadDir(const QString& downloadDir);
+
+public slots:
     void setUrlId (const QString& url);
     void startDownload (const QUrl& url);
     void setFileName (const QString& file);
+    void setUserAgentString (const QString& agent);
     void setUseCustomInstallProcedures (const bool custom);
 
-  private slots:
+private slots:
+    void finished();
     void openDownload();
     void installUpdate();
     void cancelDownload();
@@ -70,15 +78,17 @@ class Downloader : public QWidget {
     void updateProgress (qint64 received, qint64 total);
     void calculateTimeRemaining (qint64 received, qint64 total);
 
-  private:
+private:
     qreal round (const qreal& input);
 
-  private:
+private:
     QString m_url;
     uint m_startTime;
+    QDir m_downloadDir;
     QString m_fileName;
     Ui::Downloader* m_ui;
     QNetworkReply* m_reply;
+    QString m_userAgentString;
     bool m_useCustomProcedures;
     QNetworkAccessManager* m_manager;
 };

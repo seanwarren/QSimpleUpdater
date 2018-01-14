@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016 Alex Spataru <alex_spataru@outlook.com>
+ * Copyright (c) 2017 Gilmanov Ildar <https://github.com/gilmanov-ildar>
  *
  * This file is part of the QSimpleUpdater library, which is released under
  * the DBAD license, you can read a copy of it below:
@@ -40,9 +41,9 @@
 #include "Downloader.h"
 
 static const QString PARTIAL_DOWN (".part");
-static const QDir DOWNLOAD_DIR (QDir::homePath() + "/Downloads/");
 
-Downloader::Downloader (QWidget* parent) : QWidget (parent) {
+Downloader::Downloader (QWidget* parent) : QWidget (parent)
+{
     m_ui = new Ui::Downloader;
     m_ui->setupUi (this);
 
@@ -55,8 +56,11 @@ Downloader::Downloader (QWidget* parent) : QWidget (parent) {
     m_startTime = 0;
     m_useCustomProcedures = false;
 
+    /* Set download directory */
+    m_downloadDir = QDir::homePath() + "/Downloads/";
+
     /* Make the window look like a modal dialog */
-    setWindowIcon (QIcon ());
+    setWindowIcon (QIcon());
     setWindowFlags (Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
 
     /* Configure the appearance and behavior of the buttons */
@@ -71,7 +75,8 @@ Downloader::Downloader (QWidget* parent) : QWidget (parent) {
     setFixedSize (minimumSizeHint());
 }
 
-Downloader::~Downloader() {
+Downloader::~Downloader()
+{
     delete m_ui;
     delete m_reply;
     delete m_manager;
@@ -82,7 +87,8 @@ Downloader::~Downloader() {
  * finished (you can use the \c QSimpleUpdater signals to know when the
  * download is completed).
  */
-bool Downloader::useCustomInstallProcedures() const {
+bool Downloader::useCustomInstallProcedures() const
+{
     return m_useCustomProcedures;
 }
 
@@ -93,35 +99,44 @@ bool Downloader::useCustomInstallProcedures() const {
  * \note the \a url parameter is not the download URL, it is the URL of
  *       the AppCast file
  */
-void Downloader::setUrlId (const QString& url) {
+void Downloader::setUrlId (const QString& url)
+{
     m_url = url;
 }
 
 /**
  * Begins downloading the file at the given \a url
  */
-void Downloader::startDownload (const QUrl& url) {
+void Downloader::startDownload (const QUrl& url)
+{
     /* Reset UI */
     m_ui->progressBar->setValue (0);
     m_ui->stopButton->setText (tr ("Stop"));
     m_ui->downloadLabel->setText (tr ("Downloading updates"));
     m_ui->timeLabel->setText (tr ("Time remaining") + ": " + tr ("unknown"));
 
+    /* Configure the network request */
+    QNetworkRequest request (url);
+    if (!m_userAgentString.isEmpty())
+        request.setRawHeader ("User-Agent", m_userAgentString.toUtf8());
+
     /* Start download */
+    m_reply = m_manager->get (request);
     m_startTime = QDateTime::currentDateTime().toTime_t();
-    m_reply = m_manager->get (QNetworkRequest (url));
 
     /* Ensure that downloads directory exists */
-    if (!DOWNLOAD_DIR.exists())
-        DOWNLOAD_DIR.mkpath (".");
+    if (!m_downloadDir.exists())
+        m_downloadDir.mkpath (".");
 
     /* Remove old downloads */
-    QFile::remove (DOWNLOAD_DIR.filePath (m_fileName));
-    QFile::remove (DOWNLOAD_DIR.filePath (m_fileName + PARTIAL_DOWN));
+    QFile::remove (m_downloadDir.filePath (m_fileName));
+    QFile::remove (m_downloadDir.filePath (m_fileName + PARTIAL_DOWN));
 
     /* Update UI when download progress changes or download finishes */
     connect (m_reply, SIGNAL (downloadProgress (qint64, qint64)),
              this,      SLOT (updateProgress   (qint64, qint64)));
+    connect (m_reply, SIGNAL (finished ()),
+             this,      SLOT (finished ()));
     connect (m_reply, SIGNAL (redirected       (QUrl)),
              this,      SLOT (startDownload    (QUrl)));
 
@@ -131,7 +146,8 @@ void Downloader::startDownload (const QUrl& url) {
 /**
  * Changes the name of the downloaded file
  */
-void Downloader::setFileName (const QString& file) {
+void Downloader::setFileName (const QString& file)
+{
     m_fileName = file;
 
     if (m_fileName.isEmpty())
@@ -139,14 +155,38 @@ void Downloader::setFileName (const QString& file) {
 }
 
 /**
+ * Changes the user-agent string used to communicate with the remote HTTP server
+ */
+void Downloader::setUserAgentString (const QString& agent)
+{
+    m_userAgentString = agent;
+}
+
+void Downloader::finished()
+{
+    /* Rename file */
+    QFile::rename (m_downloadDir.filePath (m_fileName + PARTIAL_DOWN),
+                   m_downloadDir.filePath (m_fileName));
+
+    /* Notify application */
+    emit downloadFinished (m_url, m_downloadDir.filePath (m_fileName));
+
+    /* Install the update */
+    m_reply->close();
+    installUpdate();
+    setVisible (false);
+}
+
+/**
  * Opens the downloaded file.
  * \note If the downloaded file is not found, then the function will alert the
  *       user about the error.
  */
-void Downloader::openDownload() {
+void Downloader::openDownload()
+{
     if (!m_fileName.isEmpty())
-        QDesktopServices::openUrl (QUrl::fromLocalFile (DOWNLOAD_DIR.filePath (
-                                       m_fileName)));
+        QDesktopServices::openUrl (QUrl::fromLocalFile (m_downloadDir.filePath (
+                                                            m_fileName)));
 
     else {
         QMessageBox::critical (this,
@@ -164,7 +204,8 @@ void Downloader::openDownload() {
  *       signals fired by the \c QSimpleUpdater to install the update with your
  *       own implementations/code.
  */
-void Downloader::installUpdate() {
+void Downloader::installUpdate()
+{
     if (useCustomInstallProcedures())
         return;
 
@@ -204,7 +245,8 @@ void Downloader::installUpdate() {
  * Prompts the user if he/she wants to cancel the download and cancels the
  * download if the user agrees to do that.
  */
-void Downloader::cancelDownload() {
+void Downloader::cancelDownload()
+{
     if (!m_reply->isFinished()) {
         QMessageBox box;
         box.setWindowTitle (tr ("Updater"));
@@ -225,34 +267,24 @@ void Downloader::cancelDownload() {
 /**
  * Writes the downloaded data to the disk
  */
-void Downloader::saveFile (qint64 received, qint64 total) {
+void Downloader::saveFile (qint64 received, qint64 total)
+{
+    Q_UNUSED(received);
+    Q_UNUSED(total);
+
     /* Check if we need to redirect */
     QUrl url = m_reply->attribute (
-                   QNetworkRequest::RedirectionTargetAttribute).toUrl();
+                QNetworkRequest::RedirectionTargetAttribute).toUrl();
     if (!url.isEmpty()) {
         startDownload (url);
         return;
     }
 
     /* Save downloaded data to disk */
-    QFile file (DOWNLOAD_DIR.filePath (m_fileName + PARTIAL_DOWN));
+    QFile file (m_downloadDir.filePath (m_fileName + PARTIAL_DOWN));
     if (file.open (QIODevice::WriteOnly | QIODevice::Append)) {
         file.write (m_reply->readAll());
         file.close();
-    }
-
-    /* Open downloaded update */
-    if (received >= total && total > 0) {
-        /* Rename file */
-        QFile::rename (DOWNLOAD_DIR.filePath (m_fileName + PARTIAL_DOWN),
-                       DOWNLOAD_DIR.filePath (m_fileName));
-
-        /* Notify application */
-        emit downloadFinished (m_url, DOWNLOAD_DIR.filePath (m_fileName));
-
-        /* Install the update */
-        m_reply->close();
-        installUpdate();
     }
 }
 
@@ -262,7 +294,8 @@ void Downloader::saveFile (qint64 received, qint64 total) {
  * data and the total download size. Then, this function proceeds to update the
  * dialog controls/UI.
  */
-void Downloader::calculateSizes (qint64 received, qint64 total) {
+void Downloader::calculateSizes (qint64 received, qint64 total)
+{
     QString totalSize;
     QString receivedSize;
 
@@ -293,7 +326,8 @@ void Downloader::calculateSizes (qint64 received, qint64 total) {
  * Uses the \a received and \a total parameters to get the download progress
  * and update the progressbar value on the dialog.
  */
-void Downloader::updateProgress (qint64 received, qint64 total) {
+void Downloader::updateProgress (qint64 received, qint64 total)
+{
     if (total > 0) {
         m_ui->progressBar->setMinimum (0);
         m_ui->progressBar->setMaximum (100);
@@ -323,7 +357,8 @@ void Downloader::updateProgress (qint64 received, qint64 total) {
  * (hours, minutes or seconds) and constructs a user-friendly string, which
  * is displayed in the dialog.
  */
-void Downloader::calculateTimeRemaining (qint64 received, qint64 total) {
+void Downloader::calculateTimeRemaining (qint64 received, qint64 total)
+{
     uint difference = QDateTime::currentDateTime().toTime_t() - m_startTime;
 
     if (difference > 0) {
@@ -366,8 +401,21 @@ void Downloader::calculateTimeRemaining (qint64 received, qint64 total) {
 /**
  * Rounds the given \a input to two decimal places
  */
-qreal Downloader::round (const qreal& input) {
+qreal Downloader::round (const qreal& input)
+{
     return roundf (input * 100) / 100;
+}
+
+QString Downloader::downloadDir() const
+{
+    return m_downloadDir.absolutePath();
+}
+
+void Downloader::setDownloadDir(const QString& downloadDir)
+{
+    if(m_downloadDir.absolutePath() != downloadDir) {
+        m_downloadDir = downloadDir;
+    }
 }
 
 /**
@@ -377,6 +425,7 @@ qreal Downloader::round (const qreal& input) {
  * Use the signals fired by the \c QSimpleUpdater to implement your own install
  * procedures.
  */
-void Downloader::setUseCustomInstallProcedures (const bool custom) {
+void Downloader::setUseCustomInstallProcedures (const bool custom)
+{
     m_useCustomProcedures = custom;
 }
