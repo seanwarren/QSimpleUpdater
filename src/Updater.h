@@ -34,6 +34,7 @@
 #include <QObject>
 #include <QNetworkReply>
 #include <QNetworkAccessManager>
+#include <QAbstractButton>
 
 #include <QSimpleUpdater.h>
 
@@ -84,6 +85,7 @@ public slots:
     void setPlatformKey (const QString& platformKey);
     void setUseCustomAppcast (const bool customAppcast);
     void setUseCustomInstallProcedures (const bool custom);
+    void msgBoxClosed(QAbstractButton* button);
 
 private slots:
     void onReply (QNetworkReply* reply);

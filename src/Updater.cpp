@@ -405,9 +405,10 @@ void Updater::setUpdateAvailable (const bool available)
 {
     m_updateAvailable = available;
 
-    QMessageBox box;
-    box.setTextFormat (Qt::RichText);
-    box.setIcon (QMessageBox::Information);
+    QMessageBox* box = new QMessageBox();
+    box->setTextFormat (Qt::RichText);
+    box->setModal (false);
+    box->setIcon (QMessageBox::Information);
 
     if (updateAvailable() && (notifyOnUpdate() || notifyOnFinish())) {
         QString text = tr ("Would you like to download the update now?");
@@ -416,37 +417,44 @@ void Updater::setUpdateAvailable (const bool available)
                         .arg (latestVersion()).arg (moduleName())
                         + "</h3>";
 
-        box.setText (title);
-        box.setInformativeText (text);
-        box.setStandardButtons (QMessageBox::No | QMessageBox::Yes);
-        box.setDefaultButton   (QMessageBox::Yes);
+        box->setText (title);
+        box->setInformativeText (text);
+        box->setStandardButtons (QMessageBox::No | QMessageBox::Yes);
+        box->setDefaultButton   (QMessageBox::Yes);
 
-        if (box.exec() == QMessageBox::Yes) {
-            if (!openUrl().isEmpty())
-                QDesktopServices::openUrl (QUrl (openUrl()));
-
-            else if (downloaderEnabled()) {
-                m_downloader->setUrlId (url());
-                m_downloader->setFileName (downloadUrl().split ("/").last());
-                m_downloader->startDownload (QUrl (downloadUrl()));
-            }
-
-            else
-                QDesktopServices::openUrl (QUrl (downloadUrl()));
-        }
+        box->open(this, SLOT(msgBoxClosed(QAbstractButton*)));         
     }
 
     else if (notifyOnFinish()) {
-        box.setStandardButtons (QMessageBox::Close);
-        box.setInformativeText (tr ("No updates are available for the moment"));
-        box.setText ("<h3>"
+        box->setStandardButtons (QMessageBox::Close);
+        box->setInformativeText (tr ("No updates are available for the moment"));
+        box->setText ("<h3>"
                      + tr ("Congratulations! You are running the "
                            "latest version of %1").arg (moduleName())
                      + "</h3>");
 
-        box.exec();
+        box->exec();
     }
 }
+
+void Updater::msgBoxClosed(QAbstractButton* button)
+{
+   if (button->text()=="&Yes") {
+      if (!openUrl().isEmpty())
+         QDesktopServices::openUrl(QUrl(openUrl()));
+
+      else if (downloaderEnabled()) {
+         m_downloader->setUrlId(url());
+         m_downloader->setFileName(downloadUrl().split("/").last());
+         m_downloader->startDownload(QUrl(downloadUrl()));
+      }
+
+      else
+         QDesktopServices::openUrl(QUrl(downloadUrl()));
+   }
+}
+
+
 
 /**
  * Compares the two version strings (\a x and \a y).
