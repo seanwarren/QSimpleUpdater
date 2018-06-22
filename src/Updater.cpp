@@ -33,6 +33,7 @@
 #include <QApplication>
 #include <QJsonDocument>
 #include <QDesktopServices>
+#include <QRegularExpression>
 
 #include "Updater.h"
 #include "Downloader.h"
